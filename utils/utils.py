@@ -10,9 +10,11 @@ Optional: With the option 'compare_with_original_graph' the scores for the 'redu
 
 
 def compare_normal_algorithms_for_reduced_graph(algos, reduced_graph, removed_edges):
-    df_n = pd.DataFrame(columns=["edge", "is_removed_edge"] + list(algos.keys()))
+    df_n = pd.DataFrame(
+        columns=["edge", "is_removed_edge"] + list(algos.keys()))
 
-    sources, targets, first_scores = list(zip(*algos[list(algos.keys())[0]](reduced_graph)))
+    sources, targets, first_scores = list(
+        zip(*algos[list(algos.keys())[0]](reduced_graph)))
     edges = list(zip(sources, targets))
     removed = []
     scores = {list(algos.keys())[0]: first_scores}
@@ -26,7 +28,7 @@ def compare_normal_algorithms_for_reduced_graph(algos, reduced_graph, removed_ed
     for key in list(algos.keys())[1:]:
         _, _, tmp_scores = list(zip(*algos[key](reduced_graph)))
         scores[key] = tmp_scores
-    
+
     df_n["edge"] = edges
     df_n["is_removed_edge"] = removed
     for key in algos.keys():
@@ -46,9 +48,11 @@ def compare_community_algorithms_for_reduced_graph(algos, reduced_graph, removed
         for v in community:
             reduced_graph.nodes[v]['community'] = i + 1
 
-    df_n = pd.DataFrame(columns=["edge", "is_removed_edge"] + list(algos.keys()))
+    df_n = pd.DataFrame(
+        columns=["edge", "is_removed_edge"] + list(algos.keys()))
 
-    sources, targets, first_scores = list(zip(*algos[list(algos.keys())[0]](reduced_graph)))
+    sources, targets, first_scores = list(
+        zip(*algos[list(algos.keys())[0]](reduced_graph)))
     edges = list(zip(sources, targets))
     removed = []
     scores = {list(algos.keys())[0]: first_scores}
@@ -62,7 +66,7 @@ def compare_community_algorithms_for_reduced_graph(algos, reduced_graph, removed
     for key in list(algos.keys())[1:]:
         _, _, tmp_scores = list(zip(*algos[key](reduced_graph)))
         scores[key] = tmp_scores
-    
+
     df_n["edge"] = edges
     df_n["is_removed_edge"] = removed
     for key in algos.keys():
@@ -79,7 +83,10 @@ def compare_combined(algos, reduced_graph, removed_edges, communities):
 
     return pd.concat([df1, df2.loc[:, list(algos["community_algos"].keys())]], axis=1)
 
-def plot_results(graph_num, result, width_of_interval):
+
+def plot_results(graph_num, result, scope=(0, 20_000), num_of_intervals=10):
+    assert (scope[0] < scope[1]+num_of_intervals)
+
     algo_dict = {
         "rai": "Resource Allocation Index",
         "jc": "Jaccard Coefficient",
@@ -92,7 +99,7 @@ def plot_results(graph_num, result, width_of_interval):
     }
 
     barWidth = 0.1
-    fig = plt.subplots(figsize =(20, 5))
+    fig = plt.subplots(figsize=(20, 5))
 
     list_of_indexlists = []
     ranges = []
@@ -103,20 +110,25 @@ def plot_results(graph_num, result, width_of_interval):
         data = result.sort_values(by=algo, ascending=False)
         data = data.reset_index(drop=True)
 
-        list_of_indexlists.append(list(data[data['is_removed_edge'] == True].index))
+        list_of_indexlists.append(
+            list(data[data['is_removed_edge'] == True].index))
 
-    num_of_intervals = math.ceil(max(list(zip(*list_of_indexlists))[-1])/width_of_interval)
-
+    width_of_interval = int((scope[1] - scope[0]) / num_of_intervals)
     for j in range(num_of_intervals):
-        left, right = j*width_of_interval, (j+1)*width_of_interval
+        left, right = j*width_of_interval+1, (j+1)*width_of_interval
         disp_ranges.append(f"{left}-{right}")
         ranges.append((left, right))
 
-    
+    max_val = max(list(zip(*list_of_indexlists))[-1])
+    if scope[1] < max_val:
+        disp_ranges[-1] = (f"{ranges[-1][1]}-{max_val}")
+        ranges[-1] = (ranges[-1][1], max_val)
+
     for j, algo in enumerate(data.columns[2:]):
         tmp_list = []
         for left, right in ranges:
-            val_of_interval = len(list(filter(lambda x: left<=x<right, list_of_indexlists[j])))
+            val_of_interval = len(
+                list(filter(lambda x: left <= x < right, list_of_indexlists[j])))
             tmp_list.append(val_of_interval)
         y_values_for_algorithms.append(tmp_list)
 
@@ -124,11 +136,15 @@ def plot_results(graph_num, result, width_of_interval):
         y = y_values_for_algorithms[j]
         x = [x + barWidth*j for x in range(len(y))]
         plt.bar(x, y, width=barWidth, edgecolor='grey', label=algo_dict[algo])
-    
+
     plt.title(f"Graph n{graph_num}")
-    plt.xlabel(f"Rang berechnet von der Methode ({num_of_intervals} gleich verteilte Intervalle)", fontweight ='bold', fontsize = 15)
-    plt.ylabel("Anzahl an zuvor gelöschten Kanten", fontweight ='bold', fontsize = 15)
-    plt.xticks([r + barWidth for r in range(len(y_values_for_algorithms[0]))], disp_ranges)
+    plt.xlabel(xlabel=f"Rang berechnet von der Methode",
+               fontweight='bold',
+               fontsize=15)
+    plt.ylabel(ylabel="Anzahl an zuvor gelöschten Kanten",
+               fontweight='bold',
+               fontsize=15)
+    plt.xticks([r + barWidth for r in range(num_of_intervals)], disp_ranges)
 
     plt.legend()
     plt.show()
