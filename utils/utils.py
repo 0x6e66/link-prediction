@@ -3,30 +3,31 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import random
 
-'''
-Calculates the scores for every edge in 'removed_edges' for every algorithm in 'algos'
-Optional: With the option 'compare_with_original_graph' the scores for the 'reduced_graph' are being compared to the scores in the 'original_graph'
-'''
+# Calculates the scores for every edge in 'removed_edges' for every algorithm in 'algos'
 def compare_normal_algorithms_for_reduced_graph(algos, reduced_graph, removed_edges):
+    # Build dataframe by columns
     df_n = pd.DataFrame(
         columns=["edge", "is_removed_edge"] + list(algos.keys()))
 
-    sources, targets, first_scores = list(
-        zip(*algos[list(algos.keys())[0]](reduced_graph)))
+    # Calculate the scores of every non-existent edge in the reduced_graph for the first algorithm 
+    sources, targets, first_scores = list(zip(*algos[list(algos.keys())[0]](reduced_graph)))
     edges = list(zip(sources, targets))
     removed = []
     scores = {list(algos.keys())[0]: first_scores}
 
     for edge in edges:
+        # Check if edge is in removed_edges => relevant for comparing the algorithms
         if edge in removed_edges or edge[::-1] in removed_edges:
             removed.append(True)
         else:
             removed.append(False)
 
+    # Calculate the scores of every non-existent edge in the reduced_graph for the other algorithms
     for key in list(algos.keys())[1:]:
         _, _, tmp_scores = list(zip(*algos[key](reduced_graph)))
         scores[key] = tmp_scores
 
+    # Fill dataframe with data
     df_n["edge"] = edges
     df_n["is_removed_edge"] = removed
     for key in algos.keys():
@@ -35,18 +36,18 @@ def compare_normal_algorithms_for_reduced_graph(algos, reduced_graph, removed_ed
     return df_n
 
 
-'''
-Calculates the scores for every edge in 'removed_edges' for every algorithm in 'algos'
-Optional: With the option 'compare_with_original_graph' the scores for the 'reduced_graph' are being compared to the scores in the 'original_graph'
-'''
+
+# Calculates the scores for every edge in 'removed_edges' for every algorithm in 'algos'
 def compare_community_algorithms_for_reduced_graph(algos, reduced_graph, removed_edges, communities):
     for i, community in enumerate(communities):
         for v in community:
             reduced_graph.nodes[v]['community'] = i + 1
 
+    # Build dataframe by columns
     df_n = pd.DataFrame(
         columns=["edge", "is_removed_edge"] + list(algos.keys()))
 
+    # Calculate the scores of every non-existent edge in the reduced_graph for the first algorithm 
     sources, targets, first_scores = list(
         zip(*algos[list(algos.keys())[0]](reduced_graph)))
     edges = list(zip(sources, targets))
@@ -54,15 +55,18 @@ def compare_community_algorithms_for_reduced_graph(algos, reduced_graph, removed
     scores = {list(algos.keys())[0]: first_scores}
 
     for edge in edges:
+        # Check if edge is in removed_edges => relevant for comparing the algorithms
         if edge in removed_edges or edge[::-1] in removed_edges:
             removed.append(True)
         else:
             removed.append(False)
 
+    # Calculate the scores of every non-existent edge in the reduced_graph for the other algorithms
     for key in list(algos.keys())[1:]:
         _, _, tmp_scores = list(zip(*algos[key](reduced_graph)))
         scores[key] = tmp_scores
 
+    # Fill dataframe with data
     df_n["edge"] = edges
     df_n["is_removed_edge"] = removed
     for key in algos.keys():
@@ -72,35 +76,43 @@ def compare_community_algorithms_for_reduced_graph(algos, reduced_graph, removed
 
 
 def compare_combined(algos, reduced_graph, removed_edges, communities):
+    # Calculate data for all "normal" algorithms (algorithms that are not based on communities)
     df1 = compare_normal_algorithms_for_reduced_graph(
         algos["normal_algos"], reduced_graph, removed_edges)
+    # Calculate data for all "community" algorithms (algorithms that are based on communities)
     df2 = compare_community_algorithms_for_reduced_graph(
         algos["community_algos"], reduced_graph, removed_edges, communities)
 
+    # concat the two dataframes
     return pd.concat([df1, df2.loc[:, list(algos["community_algos"].keys())]], axis=1)
 
-
+# Randomly removes edges from the graph and returns ("graph" is left untouched)
 def remove_edges(graph, percentages):
-    reduced_graphs = []
-    removed_edges = []
+    res = []
 
     for p in percentages:
+        # Calculate number of edges to remove based on the current percentage
         num_of_edges_to_remove = int(graph.number_of_edges() * p)
+
+        # Randomly select edges to remove
         edges_to_remove = random.sample(list(graph.edges()), k=num_of_edges_to_remove)
         
-        removed_edges.append(edges_to_remove)
-
         tmp_graph = graph.copy()
+
+        # Remove edges from temporary graph
         tmp_graph.remove_edges_from(edges_to_remove)
-        reduced_graphs.append(tmp_graph)
+        
+        res.append((tmp_graph, edges_to_remove))
 
-    return reduced_graphs, removed_edges
+    return res
 
 
-def plot_results(graph_num, result, scope=None, num_of_intervals=10):
+def plot_results(graph_num, data, scope=None, num_of_intervals=10):
     if scope:
+        # If scope is set, check if scope is set right
         assert (scope[0] < scope[1]+num_of_intervals)
 
+    # Dictionary for full names of algorithms in resulting image
     algo_dict = {
         "rai": "Resource Allocation Index",
         "jc": "Jaccard Coefficient",
@@ -119,26 +131,39 @@ def plot_results(graph_num, result, scope=None, num_of_intervals=10):
     ranges = []
     disp_ranges = []
     y_values_for_algorithms = []
-
-    for algo in result.columns[2:]:
-        data = result.sort_values(by=algo, ascending=False)
+    
+    # Sort for every algorithm and calculate the indexes of the previously removed edges
+    for algo in data.columns[2:]:
+        # Sort by current algorithm
+        data = data.sort_values(by=algo, ascending=False)
+        # Reset indexes
         data = data.reset_index(drop=True)
 
+        # Append a list of indexes of previously removed edges to list_of_indexlists
         list_of_indexlists.append(
             list(data[data['is_removed_edge'] == True].index))
 
+    # Calculate highest index in list_of_indexlists
     max_val = max(list(zip(*list_of_indexlists))[-1])
+
+    # Set width of interval (and scope if not set)
     if scope:
         width_of_interval = int((scope[1] - scope[0]) / num_of_intervals)
     else:
         width_of_interval = int(max_val / num_of_intervals)
         scope = (0, max_val)
 
+    # Calculate actual intervals
     for j in range(num_of_intervals):
         left, right = j*width_of_interval+1, (j+1)*width_of_interval
+
+        # For display purposes
         disp_ranges.append(f"{left}-{right}")
+
+        # Actual intervals
         ranges.append((left, right))
 
+    # Set last interval correctly, so that the last interval shows correct ending
     if scope[1] < max_val:
         disp_ranges[-1] = (f"{ranges[-1][1]}-{max_val}")
         ranges[-1] = (ranges[-1][1], max_val)
@@ -146,28 +171,28 @@ def plot_results(graph_num, result, scope=None, num_of_intervals=10):
         disp_ranges[-1] = (f"{ranges[-1][0]}-{max_val}")
         ranges[-1] = (ranges[-1][0], max_val)
 
-    for j, algo in enumerate(result.columns[2:]):
-        tmp_list = []
+    # Calculate number of indexes in each interval for every algorithm
+    for j, algo in enumerate(data.columns[2:]):
+        y = []
         for left, right in ranges:
-            val_of_interval = len(
+            # Filter for every index that falls in the range(left, right)
+            number_of_indexes_in_interval = len(
                 list(filter(lambda x: left <= x < right, list_of_indexlists[j])))
-            tmp_list.append(val_of_interval)
-        y_values_for_algorithms.append(tmp_list)
+            y.append(number_of_indexes_in_interval)
 
-    for j, algo in enumerate(result.columns[2:]):
-        y = y_values_for_algorithms[j]
         x = [x + bar_width*j for x in range(len(y))]
         plt.bar(x, y, width=bar_width, edgecolor='grey', label=algo_dict[algo])
 
     plt.title(f"Graph n{graph_num}")
-    plt.xlabel(xlabel=f"Rang berechnet von der Methode",
+    plt.xlabel(xlabel=f"Rank calculated by algorithm",
                fontweight='bold',
                fontsize=15)
-    plt.ylabel(ylabel="Anzahl an zuvor gelöschten Kanten",
+    plt.ylabel(ylabel="Number of previously removed edges",
                fontweight='bold',
                fontsize=15)
     
-    num_of_algos = len(result.columns[2:])
+    # Set placing of the display range to be in the middle of the bars
+    num_of_algos = len(data.columns[2:])
     if num_of_algos % 2 == 0:
         plt.xticks([r + bar_width*(num_of_algos/2-0.5) for r in range(num_of_intervals)], disp_ranges)
     elif num_of_algos % 2 != 0:
