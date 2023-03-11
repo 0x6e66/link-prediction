@@ -125,12 +125,11 @@ def plot_results(graph_num, data, scope=None, num_of_intervals=10):
     }
 
     bar_width = 0.1
-    fig = plt.subplots(figsize=(20, 5))
+    plt.subplots(figsize=(20, 5))
 
     list_of_indexlists = []
     ranges = []
     disp_ranges = []
-    y_values_for_algorithms = []
     
     # Sort for every algorithm and calculate the indexes of the previously removed edges
     for algo in data.columns[2:]:
@@ -144,18 +143,18 @@ def plot_results(graph_num, data, scope=None, num_of_intervals=10):
             list(data[data['is_removed_edge'] == True].index))
 
     # Calculate highest index in list_of_indexlists
-    max_val = max(list(zip(*list_of_indexlists))[-1])
+    max_index = max(list(zip(*list_of_indexlists))[-1])
 
     # Set width of interval (and scope if not set)
     if scope:
         width_of_interval = int((scope[1] - scope[0]) / num_of_intervals)
     else:
-        width_of_interval = int(max_val / num_of_intervals)
-        scope = (0, max_val)
+        width_of_interval = int(max_index / num_of_intervals)
+        scope = (0, max_index)
 
     # Calculate actual intervals
-    for j in range(num_of_intervals):
-        left, right = j*width_of_interval+1, (j+1)*width_of_interval
+    for i in range(num_of_intervals):
+        left, right = i*width_of_interval+1, (i+1)*width_of_interval
 
         # For display purposes
         disp_ranges.append(f"{left}-{right}")
@@ -164,23 +163,23 @@ def plot_results(graph_num, data, scope=None, num_of_intervals=10):
         ranges.append((left, right))
 
     # Set last interval correctly, so that the last interval shows correct ending
-    if scope[1] < max_val:
-        disp_ranges[-1] = (f"{ranges[-1][1]}-{max_val}")
-        ranges[-1] = (ranges[-1][1], max_val)
-    elif scope[1] > max_val:
-        disp_ranges[-1] = (f"{ranges[-1][0]}-{max_val}")
-        ranges[-1] = (ranges[-1][0], max_val)
+    if scope[1] < max_index:
+        disp_ranges[-1] = (f"{ranges[-1][1]}-{max_index}")
+        ranges[-1] = (ranges[-1][1], max_index)
+    elif scope[1] > max_index:
+        disp_ranges[-1] = (f"{ranges[-1][0]}-{max_index}")
+        ranges[-1] = (ranges[-1][0], max_index)
 
     # Calculate number of indexes in each interval for every algorithm
-    for j, algo in enumerate(data.columns[2:]):
+    for i, algo in enumerate(data.columns[2:]):
         y = []
         for left, right in ranges:
-            # Filter for every index that falls in the range(left, right)
+            # Filter for every index that falls in the range(left, right) and get length of that list
             number_of_indexes_in_interval = len(
-                list(filter(lambda x: left <= x < right, list_of_indexlists[j])))
+                list(filter(lambda x: left <= x < right, list_of_indexlists[i])))
             y.append(number_of_indexes_in_interval)
 
-        x = [x + bar_width*j for x in range(len(y))]
+        x = [x + bar_width*i for x in range(len(y))]
         plt.bar(x, y, width=bar_width, edgecolor='grey', label=algo_dict[algo])
 
     plt.title(f"Graph n{graph_num}")
@@ -195,7 +194,7 @@ def plot_results(graph_num, data, scope=None, num_of_intervals=10):
     num_of_algos = len(data.columns[2:])
     if num_of_algos % 2 == 0:
         plt.xticks([r + bar_width*(num_of_algos/2-0.5) for r in range(num_of_intervals)], disp_ranges)
-    elif num_of_algos % 2 != 0:
+    else:
         plt.xticks([r + bar_width*(num_of_algos/2-1) for r in range(num_of_intervals)], disp_ranges)
 
     plt.legend()
